@@ -21,6 +21,16 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/polls', require('./routes/polls'));
+// Add Payment route
+app.use('/api/payments', require('./routes/payments'));
+
+app.use('/api/analytics', require('./routes/analytics'));
+
+// At the appropriate place, after your other routes:
+app.use('/api/razorpay', require('./routes/razorpay'));
+
+
+
 
 // Error Handling Middleware
 app.use(errorHandler);
@@ -49,6 +59,21 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     logger.info('Client disconnected: ' + socket.id);
   });
+
+  // In server.js, inside io.on('connection', ...) add:
+  socket.on('video-offer', (data) => {
+  // data should include target socketId and offer SDP
+  io.to(data.target).emit('video-offer', { sdp: data.sdp, sender: socket.id });
+  });
+
+  socket.on('video-answer', (data) => {
+  io.to(data.target).emit('video-answer', { sdp: data.sdp, sender: socket.id });
+  });
+
+  socket.on('new-ice-candidate', (data) => {
+  io.to(data.target).emit('new-ice-candidate', { candidate: data.candidate, sender: socket.id });
+  });
+
 });
 
 // Start the server

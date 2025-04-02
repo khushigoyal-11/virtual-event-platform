@@ -13,13 +13,16 @@ const Login = () => {
     e.preventDefault();
     try {
       const res = await API.post("/auth/login", formData);
+      // After receiving token and user info (e.g., role)
       login(res.data.token);
+      localStorage.setItem("role", res.data.role);  // Save the role in localStorage
       navigate("/dashboard");
     } catch (error) {
       console.error("Login failed", error);
       alert("Login failed");
     }
   };
+  
 
   return (
     <div style={{ padding: "20px" }}>
