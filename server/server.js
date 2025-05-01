@@ -1,0 +1,81 @@
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const cors = require('cors');
+const socketio = require('socket.io');
+const connectDB = require('./config/db');
+const errorHandler = require('./middleware/errorHandler');
+const logger = require('./utils/logger');
+
+// Connect to database
+connectDB();
+
+const app = express();
+
+// Middleware
+app.use(express.json());
+app.use(cors());
+
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/chat', require('./routes/chat'));
+app.use('/api/polls', require('./routes/polls'));
+// Add Payment route
+app.use('/api/payments', require('./routes/payments'));
+
+app.use('/api/analytics', require('./routes/analytics'));
+
+// At the appropriate place, after your other routes:
+app.use('/api/razorpay', require('./routes/razorpay'));
+
+
+
+
+// Error Handling Middleware
+app.use(errorHandler);
+
+// Create HTTP server and setup Socket.io
+const server = http.createServer(app);
+const io = socketio(server, {
+  cors: { origin: "*" }
+});
+
+// Socket.io events
+io.on('connection', (socket) => {
+  logger.info('New client connected: ' + socket.id);
+
+  // Chat event
+  socket.on('chatMessage', (data) => {
+    // Broadcast chat message to room or globally
+    io.emit('chatMessage', data);
+  });
+
+  // Poll update event
+  socket.on('pollUpdate', (data) => {
+    io.emit('pollUpdate', data);
+  });
+
+  socket.on('disconnect', () => {
+    logger.info('Client disconnected: ' + socket.id);
+  });
+
+  // In server.js, inside io.on('connection', ...) add:
+  socket.on('video-offer', (data) => {
+  // data should include target socketId and offer SDP
+  io.to(data.target).emit('video-offer', { sdp: data.sdp, sender: socket.id });
+  });
+
+  socket.on('video-answer', (data) => {
+  io.to(data.target).emit('video-answer', { sdp: data.sdp, sender: socket.id });
+  });
+
+  socket.on('new-ice-candidate', (data) => {
+  io.to(data.target).emit('new-ice-candidate', { candidate: data.candidate, sender: socket.id });
+  });
+
+});
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
